@@ -2,9 +2,6 @@ package protocol
 
 import (
 	"errors"
-	"io"
-
-	"github.com/iamjinlei/go-ipc/transport"
 )
 
 type Response struct {
@@ -12,6 +9,18 @@ type Response struct {
 	// after gob encoding/decoding
 	E string
 	D []byte
+}
+
+func NewResponse(d []byte, e error) *Response {
+	errStr := ""
+	if e != nil {
+		errStr = e.Error()
+	}
+
+	return &Response{
+		E: errStr,
+		D: d,
+	}
 }
 
 func (r *Response) Data() []byte {
@@ -26,46 +35,6 @@ func (r *Response) Error() error {
 	return errors.New(r.E)
 }
 
-func (r *Response) Encode() ([]byte, error) {
-	return encode(r)
-}
-
-func EncodeResponse(d []byte, e error) ([]byte, error) {
-	errStr := ""
-	if e != nil {
-		errStr = e.Error()
-	}
-
-	r := &Response{
-		E: errStr,
-		D: d,
-	}
-	return r.Encode()
-}
-
-func DecodeResponse(d []byte) (*Response, error) {
-	var resp Response
-	if err := decode(d, &resp); err != nil {
-		return nil, err
-	}
-
-	return &resp, nil
-}
-
-func WriteResponse(w io.Writer, d []byte, e error) error {
-	pkt, err := EncodeResponse(d, e)
-	if err != nil {
-		return err
-	}
-
-	return transport.WritePacket(w, pkt)
-}
-
-func ReadResponse(r io.Reader) (*Response, error) {
-	pkt, err := transport.ReadPacket(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return DecodeResponse(pkt)
+func (r *Response) Type() MsgType {
+	return TypeResponse
 }

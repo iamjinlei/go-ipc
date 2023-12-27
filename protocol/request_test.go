@@ -13,18 +13,13 @@ import (
 func TestRequest(t *testing.T) {
 	data := "test request data"
 
-	// Encode-decode
-	enc, err := protocol.EncodeRequest([]byte(data))
-	assert.NoError(t, err)
-	r, err := protocol.DecodeRequest(enc)
-	assert.NoError(t, err)
-	assert.Equal(t, data, string(r.Data()))
-
-	// Write-read
+	r := protocol.NewRequest([]byte(data))
 	buf := bytes.NewBuffer(nil)
-	require.NoError(t, protocol.WriteRequest(buf, []byte(data)))
+	require.NoError(t, protocol.WriteMsg(buf, r))
 
-	r, err = protocol.ReadRequest(bytes.NewReader(buf.Bytes()))
+	msg, err := protocol.ReadMsg(bytes.NewReader(buf.Bytes()))
+	assert.NoError(t, err)
+	r, err = msg.Request()
 	assert.NoError(t, err)
 	assert.Equal(t, data, string(r.Data()))
 }

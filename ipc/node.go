@@ -114,18 +114,28 @@ func (n *Node) clientLoop() {
 			defer c.Close()
 
 			n.cfg.setWriteDeadline(c)
-			if err := protocol.WriteHandshake(c, n.id); err != nil {
+			if err := protocol.WriteMsg(
+				c,
+				protocol.NewHandshake(n.id),
+			); err != nil {
 				n.sendErr(err)
 				return
 			}
 
 			n.cfg.setReadDeadline(c)
-			if ack, err := protocol.ReadAck(c); err != nil {
+			if msg, err := protocol.ReadMsg(c); err != nil {
 				n.sendErr(err)
 				return
-			} else if !ack.Ok() {
-				n.sendErr(ErrHandshake)
-				return
+			} else {
+				ack, err := msg.Ack()
+				if err != nil {
+					n.sendErr(err)
+					return
+				}
+				if !ack.Ok() {
+					n.sendErr(ErrHandshake)
+					return
+				}
 			}
 
 			n.cfg.log("[Client] handshake succeeded")
@@ -153,7 +163,10 @@ func transceive(
 			cfg.log("[Client] outgoing message received from queue")
 
 			cfg.setWriteDeadline(conn)
-			if err := protocol.WriteRequest(conn, req.Data()); err != nil {
+			if err := protocol.WriteMsg(
+				conn,
+				protocol.NewRequest(req.Data()),
+			); err != nil {
 				req.setResponse(nil, err)
 				return
 			}
@@ -161,7 +174,13 @@ func transceive(
 			cfg.log("[Client] outgoing message sent")
 
 			cfg.setReadDeadline(conn)
-			resp, err := protocol.ReadResponse(conn)
+			msg, err := protocol.ReadMsg(conn)
+			if err != nil {
+				req.setResponse(nil, err)
+				return
+			}
+
+			resp, err := msg.Response()
 			if err != nil {
 				req.setResponse(nil, err)
 				return
@@ -237,14 +256,22 @@ func (n *Node) serverLoop() {
 					defer c.Close()
 
 					n.cfg.setReadDeadline(c)
-					h, err := protocol.ReadHandshake(c)
+					msg, err := protocol.ReadMsg(c)
+					if err != nil {
+						n.sendErr(err)
+						return
+					}
+					h, err := msg.Handshake()
 					if err != nil {
 						n.sendErr(err)
 						return
 					}
 
 					n.cfg.setWriteDeadline(c)
-					if err := protocol.WriteAck(c, true, "ok"); err != nil {
+					if err := protocol.WriteMsg(
+						c,
+						protocol.NewAck(true, "ok"),
+					); err != nil {
 						n.sendErr(err)
 						return
 					}
@@ -285,7 +312,11 @@ func serve(
 		}
 
 		cfg.setReadDeadline(conn)
-		req, err := protocol.ReadRequest(conn)
+		msg, err := protocol.ReadMsg(conn)
+		if err != nil {
+			return err
+		}
+		req, err := msg.Request()
 		if err != nil {
 			return err
 		}
@@ -298,7 +329,10 @@ func serve(
 
 		d, err := r.response()
 		cfg.setWriteDeadline(conn)
-		if err := protocol.WriteResponse(conn, d, err); err != nil {
+		if err := protocol.WriteMsg(
+			conn,
+			protocol.NewResponse(d, err),
+		); err != nil {
 			return err
 		}
 

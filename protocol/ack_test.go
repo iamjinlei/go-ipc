@@ -11,23 +11,17 @@ import (
 )
 
 func TestAck(t *testing.T) {
-	msg := "ack message"
+	data := "ack message"
 	for _, ok := range []bool{true, false} {
-		// Encode-decode
-		enc, err := protocol.EncodeAck(ok, msg)
-		assert.NoError(t, err)
-		a, err := protocol.DecodeAck(enc)
-		assert.NoError(t, err)
-		assert.Equal(t, ok, a.Ok())
-		assert.Equal(t, msg, a.Msg())
-
-		// Write-read
 		buf := bytes.NewBuffer(nil)
-		require.NoError(t, protocol.WriteAck(buf, ok, msg))
+		a := protocol.NewAck(ok, data)
+		require.NoError(t, protocol.WriteMsg(buf, a))
 
-		a, err = protocol.ReadAck(bytes.NewReader(buf.Bytes()))
+		msg, err := protocol.ReadMsg(bytes.NewReader(buf.Bytes()))
+		assert.NoError(t, err)
+		a, err = msg.Ack()
 		assert.NoError(t, err)
 		assert.Equal(t, ok, a.Ok())
-		assert.Equal(t, msg, a.Msg())
+		assert.Equal(t, data, a.Msg())
 	}
 }

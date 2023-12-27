@@ -13,18 +13,13 @@ import (
 func TestHandshake(t *testing.T) {
 	id := "test_id"
 
-	// Encode-decode
-	enc, err := protocol.EncodeHandshake(id)
-	assert.NoError(t, err)
-	h, err := protocol.DecodeHandshake(enc)
-	assert.NoError(t, err)
-	assert.Equal(t, id, h.ID())
-
-	// Write-read
+	h := protocol.NewHandshake(id)
 	buf := bytes.NewBuffer(nil)
-	require.NoError(t, protocol.WriteHandshake(buf, id))
+	require.NoError(t, protocol.WriteMsg(buf, h))
 
-	h, err = protocol.ReadHandshake(bytes.NewReader(buf.Bytes()))
+	msg, err := protocol.ReadMsg(bytes.NewReader(buf.Bytes()))
+	assert.NoError(t, err)
+	h, err = msg.Handshake()
 	assert.NoError(t, err)
 	assert.Equal(t, id, h.ID())
 }
